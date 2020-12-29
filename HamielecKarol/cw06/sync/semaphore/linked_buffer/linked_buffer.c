@@ -36,6 +36,9 @@ struct data {
 LIST_HEAD(buffer);
 size_t total_length;
 
+struct semaphore my_sem;
+
+
 static int __init linked_init(void)
 {
 	int result = 0;
@@ -45,6 +48,7 @@ static int __init linked_init(void)
 		printk(KERN_WARNING "Cannot create /proc/linked\n");
 		goto err;
 	}
+	sema_init(&my_sem, 1);
 
 	result = register_chrdev(LINKED_MAJOR, "linked", &linked_fops);
 	if (result < 0) {
@@ -105,6 +109,11 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 	if (*f_pos > total_length)
 		return 0;
 
+	// 1. Prepare the text to send
+	if (down_interruptible(&my_sem)) {
+	/* Interrupted... No semaphore acquired.. */
+	return -EINTR;
+	}
 	if (list_empty(&buffer))
 		printk(KERN_DEBUG "linked: empty list\n");
 
@@ -124,6 +133,7 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 
 		if (copy_to_user(user_buf + copied, data->contents, to_copy)) {
 			printk(KERN_WARNING "linked: could not copy data to user\n");
+			up(&my_sem);
 			return -EFAULT;
 		}
 		copied += to_copy;
@@ -133,6 +143,9 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 		if (copied >= count)
 			break;
 	}
+	
+	up(&my_sem);
+
 	printk(KERN_WARNING "linked: copied=%zd real_length=%zd\n",
 		copied, real_length);
 	*f_pos += real_length;
@@ -149,7 +162,10 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 
 	printk(KERN_WARNING "linked: write, count=%zu f_pos=%lld\n",
 		count, *f_pos);
-
+	if (down_interruptible(&my_sem)) {
+	/* Interrupted... No semaphore acquired.. */
+	return -EINTR;
+	}
 	for (i = 0; i < count; i += INTERNAL_SIZE) {
 		size_t to_copy = min((size_t) INTERNAL_SIZE, count - i);
 
@@ -174,6 +190,7 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 		*f_pos += to_copy;
 		mdelay(10);
 	}
+	up(&my_sem);
 
 	write_count++;
 	return count;
@@ -181,6 +198,8 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 err_contents:
 	kfree(data);
 err_data:
+	up(&my_sem);
+
 	return result;
 }
 

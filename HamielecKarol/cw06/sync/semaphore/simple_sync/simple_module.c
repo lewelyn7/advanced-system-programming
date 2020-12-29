@@ -17,11 +17,12 @@ const int simple_major = 198;
 const char msg_str[] = "-0123456789-ABCDEFGHIJ-";
 const int msg_len = sizeof(msg_str);
 int msg_pos;
+struct semaphore my_sem;
 
 static int __init simple_init(void)
 {
 	int result;
-
+	sema_init(&my_sem, 1);
 	result = register_chrdev(simple_major, "simple", &simple_fops);
 	if (result < 0) {
 		printk(KERN_ERR "SIMPLE: cannot register the /dev/simple\n");
@@ -47,7 +48,10 @@ ssize_t simple_read(struct file *filp, char __user *user_buf,
 	int err;
 
 	// 1. Prepare the text to send
-
+	if (down_interruptible(&my_sem)) {
+	/* Interrupted... No semaphore acquired.. */
+	return -EINTR;
+	}
 	// Calculate the length
 	length_to_copy = msg_len - (msg_pos % msg_len);
 	if (length_to_copy > count)
@@ -63,7 +67,7 @@ ssize_t simple_read(struct file *filp, char __user *user_buf,
 		local_buf[i] = msg_str[(msg_pos++) % msg_len];
 		msleep(100);
 	}
-
+	up(&my_sem);
 	// 2. Send the text
 	err = copy_to_user(user_buf, local_buf, length_to_copy);
 	if (err < 0)
