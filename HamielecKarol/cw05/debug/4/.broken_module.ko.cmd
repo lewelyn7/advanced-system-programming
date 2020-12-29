@@ -1,0 +1,1 @@
+cmd_/mnt/PS/HamielecKarol/cw05/debug/4/broken_module.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /mnt/PS/HamielecKarol/cw05/debug/4/broken_module.ko /mnt/PS/HamielecKarol/cw05/debug/4/broken_module.o /mnt/PS/HamielecKarol/cw05/debug/4/broken_module.mod.o ;  true

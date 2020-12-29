@@ -1,0 +1,1 @@
+cmd_/mnt/PS/HamielecKarol/advanced/advanced.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /mnt/PS/HamielecKarol/advanced/advanced.ko /mnt/PS/HamielecKarol/advanced/advanced.o /mnt/PS/HamielecKarol/advanced/advanced.mod.o ;  true
