@@ -8,3 +8,4 @@ buf_3="$(printf 'O%.0s' {1..100})"
 (echo ${buf_2} > /dev/linked &)
 (echo ${buf_3} > /dev/linked &)
 
+

@@ -20,6 +20,7 @@ const char * const proc_info = "reads: %zu\nwrites: %zu\ntotal length: %zu\n";
 size_t read_count;
 size_t write_count;
 struct proc_dir_entry *proc_entry;
+DEFINE_MUTEX(my_mutex);
 
 /* Operations for /dev/linked */
 const struct file_operations linked_fops;
@@ -68,6 +69,7 @@ static void clean_list(void)
 	struct list_head *cur;
 	struct list_head *tmp;
 	struct data *data;
+	mutex_lock(&my_mutex);
 
 	list_for_each_safe(cur, tmp, &buffer) {
 		data = list_entry(cur, struct data, list);
@@ -78,6 +80,8 @@ static void clean_list(void)
 		kfree(data);
 	}
 	total_length = 0;
+	mutex_unlock(&my_mutex);
+
 }
 
 static void __exit linked_exit(void)
@@ -104,6 +108,7 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 
 	if (*f_pos > total_length)
 		return 0;
+	mutex_lock(&my_mutex);
 
 	if (list_empty(&buffer))
 		printk(KERN_DEBUG "linked: empty list\n");
@@ -133,10 +138,13 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 		if (copied >= count)
 			break;
 	}
+
 	printk(KERN_WARNING "linked: copied=%zd real_length=%zd\n",
 		copied, real_length);
 	*f_pos += real_length;
 	read_count++;
+		mutex_unlock(&my_mutex);
+
 	return copied;
 }
 
@@ -149,6 +157,7 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 
 	printk(KERN_WARNING "linked: write, count=%zu f_pos=%lld\n",
 		count, *f_pos);
+	mutex_lock(&my_mutex);
 
 	for (i = 0; i < count; i += INTERNAL_SIZE) {
 		size_t to_copy = min((size_t) INTERNAL_SIZE, count - i);
@@ -174,8 +183,9 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 		*f_pos += to_copy;
 		mdelay(10);
 	}
-
 	write_count++;
+	mutex_unlock(&my_mutex);
+
 	return count;
 
 err_contents:
