@@ -7,8 +7,8 @@ default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 test:
-	sudo rmmod simple_module.ko
-	sudo insmod simple_module
+	sudo rmmod simple_module.ko || echo "wasnt loaded"
+	sudo insmod simple_module.ko
 	
 test2:
 	cat /dev/simple

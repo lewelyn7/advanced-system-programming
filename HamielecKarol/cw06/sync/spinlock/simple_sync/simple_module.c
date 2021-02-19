@@ -17,11 +17,15 @@ const int simple_major = 198;
 const char msg_str[] = "-0123456789-ABCDEFGHIJ-";
 const int msg_len = sizeof(msg_str);
 int msg_pos;
+spinlock_t some_lock;
+unsigned long flags;
+
 
 static int __init simple_init(void)
 {
 	int result;
-
+	spin_lock_init(&some_lock);
+	flags = 0;
 	result = register_chrdev(simple_major, "simple", &simple_fops);
 	if (result < 0) {
 		printk(KERN_ERR "SIMPLE: cannot register the /dev/simple\n");
@@ -47,13 +51,16 @@ ssize_t simple_read(struct file *filp, char __user *user_buf,
 	int err;
 
 	// 1. Prepare the text to send
-
+	local_buf = kmalloc(msg_len, GFP_KERNEL);
+	spin_lock(&some_lock);
 	// Calculate the length
 	length_to_copy = msg_len - (msg_pos % msg_len);
 	if (length_to_copy > count)
 		length_to_copy = count;
 
-	local_buf = kmalloc(length_to_copy, GFP_KERNEL);
+
+
+
 	if (!local_buf) {
 		err = -ENOMEM;
 		goto cleanup;
@@ -65,6 +72,7 @@ ssize_t simple_read(struct file *filp, char __user *user_buf,
 	}
 
 	// 2. Send the text
+	spin_unlock(&some_lock);
 	err = copy_to_user(user_buf, local_buf, length_to_copy);
 	if (err < 0)
 		goto cleanup;
@@ -72,6 +80,7 @@ ssize_t simple_read(struct file *filp, char __user *user_buf,
 	err = length_to_copy;
 
 cleanup:
+
 	kfree(local_buf);
 	return err;
 }

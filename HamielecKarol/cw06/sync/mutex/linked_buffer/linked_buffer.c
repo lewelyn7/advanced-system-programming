@@ -69,7 +69,6 @@ static void clean_list(void)
 	struct list_head *cur;
 	struct list_head *tmp;
 	struct data *data;
-	mutex_lock(&my_mutex);
 
 	list_for_each_safe(cur, tmp, &buffer) {
 		data = list_entry(cur, struct data, list);
@@ -80,7 +79,6 @@ static void clean_list(void)
 		kfree(data);
 	}
 	total_length = 0;
-	mutex_unlock(&my_mutex);
 
 }
 
@@ -189,6 +187,8 @@ ssize_t linked_write(struct file *filp, const char __user *user_buf,
 	return count;
 
 err_contents:
+	mutex_unlock(&my_mutex);
+
 	kfree(data);
 err_data:
 	return result;

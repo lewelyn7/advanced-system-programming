@@ -6,8 +6,8 @@ PWD   := $(shell pwd)
 default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-test: simple_module.c
-	sudo rmmod simple_module || echo "wasnt loaded"
+test:
+	sudo rmmod simple_module.ko || echo "wasnt loaded"
 	sudo insmod simple_module.ko
 	
 test2:

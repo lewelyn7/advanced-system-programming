@@ -12,4 +12,4 @@ test: linked_buffer.c
 	sudo insmod linked_buffer.ko
 	
 test2:
-	echo "w szczebrzeszynie chrzaszcz brzmi w trzcinie2" > /dev/linked
+	echo "w szczebrzeszynie chrzaszcz brzmi w trzcinie" > /dev/linked

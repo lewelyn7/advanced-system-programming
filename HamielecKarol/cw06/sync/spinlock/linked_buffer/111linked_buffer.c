@@ -154,49 +154,52 @@ ssize_t linked_read(struct file *filp, char __user *user_buf,
 ssize_t linked_write(struct file *filp, const char __user *user_buf,
 	size_t count, loff_t *f_pos)
 {
-	struct data *data;
+	struct data **data = kmalloc(sizeof(struct data*)*count, GFP_KERNEL);
 	ssize_t result = 0;
 	size_t i = 0;
-
+	int ii = 0;
+	char * local_buf = kmalloc(count+1, GFP_KERNEL);
+	copy_from_user(local_buf, user_buf, count);
+	for(ii=0; ii <= count/INTERNAL_SIZE; ii++){
+		data[ii] = kzalloc(sizeof(struct data), GFP_KERNEL);
+	}
 	printk(KERN_WARNING "linked: write, count=%zu f_pos=%lld\n",
 		count, *f_pos);
+	write_lock(&my_rwlock);
 
 	for (i = 0; i < count; i += INTERNAL_SIZE) {
 		size_t to_copy = min((size_t) INTERNAL_SIZE, count - i);
 
-		data = kzalloc(sizeof(struct data), GFP_KERNEL);
-		if (!data) {
+		if (!data[i/INTERNAL_SIZE]) {
 			result = -ENOMEM;
 			goto err_data;
 		}
-		data->length = to_copy;
+		data[i/INTERNAL_SIZE]->length = to_copy;
 
-		if (copy_from_user(data->contents, user_buf + i, to_copy)) {
+		if (memcpy( data[i/INTERNAL_SIZE]->contents, local_buf + i, to_copy)) {
 			result = -EFAULT;
 			goto err_contents;
 		}
-
-		if (strncmp(data->contents, "xxx&", 4) == 0) {
+		if (strncmp(data[i/INTERNAL_SIZE]->contents, "xxx&", 4) == 0) {
 			clean_list();
 			result = count;
 			goto err_contents;
 		}
-		write_lock(&my_rwlock);
-		list_add_tail(&(data->list), &buffer);
+		list_add_tail(&(data[i/INTERNAL_SIZE]->list), &buffer);
 
-		write_unlock(&my_rwlock);
 		total_length += to_copy;
 		*f_pos += to_copy;
-		mdelay(10);
+		//mdelay(10);
 	}
 
 	write_count++;
+	write_unlock(&my_rwlock);
 
 	return count;
 
 err_contents:
-	kfree(data);
-		write_unlock(&my_rwlock);
+	// kfree(data);
+	write_unlock(&my_rwlock);
 err_data:
 
 	return result;
